@@ -2,84 +2,75 @@ import os
 import sys
 import shutil
 
-image_extensions = ('JPEG', 'PNG', 'JPG', 'SVG')
-video_extensions = ('AVI', 'MP4', 'MOV', 'MKV')
-document_extensions = ('DOC', 'DOCX', 'TXT', 'PDF', 'XLSX', 'PPTX')
-audio_extensions = ('MP3', 'OGG', 'WAV', 'AMR')
-archive_extensions = ('ZIP', 'GZ', 'TAR')
-
-categories = {
-    'images': image_extensions,
-    'video': video_extensions,
-    'documents': document_extensions,
-    'audio': audio_extensions,
-    'archives': archive_extensions,
-}
-
-def normalize(filename):
+def normalize(name):
     translit_dict = {
-        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'h', 'ґ': 'g',
-        'д': 'd', 'е': 'e', 'є': 'ie', 'ж': 'zh', 'з': 'z',
-        'и': 'y', 'і': 'i', 'ї': 'i', 'й': 'i', 'к': 'k',
-        'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o', 'п': 'p',
-        'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f',
-        'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch',
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'є': 'ie', 'ж': 'zh', 'з': 'z', 'и': 'i',
+        'і': 'i', 'ї': 'i', 'й': 'i', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r',
+        'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch',
         'ь': '', 'ю': 'iu', 'я': 'ia',
-        'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'H', 'Ґ': 'G',
-        'Д': 'D', 'Е': 'E', 'Є': 'IE', 'Ж': 'ZH', 'З': 'Z',
-        'И': 'Y', 'І': 'I', 'Ї': 'I', 'Й': 'I', 'К': 'K',
-        'Л': 'L', 'М': 'M', 'Н': 'N', 'О': 'O', 'П': 'P',
-        'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F',
-        'Х': 'KH', 'Ц': 'TS', 'Ч': 'CH', 'Ш': 'SH', 'Щ': 'SHCH',
-        'Ь': '', 'Ю': 'IU', 'Я': 'IA',
+        'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Є': 'IE', 'Ж': 'ZH', 'З': 'Z', 'И': 'I',
+        'І': 'I', 'Ї': 'I', 'Й': 'I', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R',
+        'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F', 'Х': 'KH', 'Ц': 'TS', 'Ч': 'CH', 'Ш': 'SH', 'Щ': 'SHCH',
+        'Ь': '', 'Ю': 'IU', 'Я': 'IA'
     }
+    
+    result = []
+    for char in name:
+        if char.isalnum() or char.isspace() or char == '.':
+            result.append(char)
+        elif char in translit_dict:
+            result.append(translit_dict[char])
+        else:
+            result.append('_')
+    return ''.join(result)
 
-    translit_name = ''
-    for char in filename:
-        translit_name += translit_dict.get(char, char)
-
-    normalized_name = ''.join(c if c.isalnum() else '_' for c in translit_name)
-
-    return normalized_name
-
-def process_folder(folder_path):
+def sort_files(folder_path):
+    extensions = {
+        'images': ('JPEG', 'PNG', 'JPG', 'SVG'),
+        'video': ('AVI', 'MP4', 'MOV', 'MKV'),
+        'documents': ('DOC', 'DOCX', 'TXT', 'PDF', 'XLSX', 'PPTX'),
+        'audio': ('MP3', 'OGG', 'WAV', 'AMR'),
+        'archives': ('ZIP', 'GZ', 'TAR')
+    }
+    
     known_extensions = set()
     unknown_extensions = set()
 
-    for item in os.listdir(folder_path):
-        item_path = os.path.join(folder_path, item)
-
-        if os.path.isdir(item_path):
-            process_folder(item_path)
-
-        elif os.path.isfile(item_path):
-            filename, file_extension = os.path.splitext(item)
-
-            normalized_name = normalize(filename)
-            new_filename = normalized_name + file_extension
-            new_path = os.path.join(folder_path, new_filename)
-
-            os.rename(item_path, new_path)
-
-            moved = False
-            for category, extensions in categories.items():
-                if file_extension.upper()[1:] in extensions:
-                    moved = True
+    for root, dirs, files in os.walk(folder_path):
+        for file in files:
+            file_extension = file.split('.')[-1].upper()
+            known = False
+            
+            for category, ext_list in extensions.items():
+                if file_extension in ext_list:
                     target_folder = os.path.join(folder_path, category)
+                    known_extensions.add(file_extension)
+                    known = True
+                    
                     if not os.path.exists(target_folder):
                         os.makedirs(target_folder)
-                    shutil.move(new_path, os.path.join(target_folder, new_filename))
-                    known_extensions.add(file_extension.upper())
+                    
+                    target_path = os.path.join(target_folder, normalize(file))
+                    source_path = os.path.join(root, file)
+                    shutil.move(source_path, target_path)
                     break
-
-            if not moved:
-                unknown_extensions.add(file_extension.upper())
-
+            
+            if not known:
+                unknown_extensions.add(file_extension)
+    
     return known_extensions, unknown_extensions
 
-if __name__ == '__main__':
+def remove_empty_folders(folder_path):
+    for root, dirs, files in os.walk(folder_path, topdown=False):
+        for dir in dirs:
+            dir_path = os.path.join(root, dir)
+            if not os.listdir(dir_path):
+                os.rmdir(dir_path)
+
+if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python sort.py /path/to/folder")
+        print("Usage: python sort.py <folder_path>")
     else:
         folder_path = sys.argv[1]
-        known_ext, unknown_ext = process_folder(folder_path)
+        known_extensions, unknown_extensions = sort_files(folder_path)
+        remove_empty_folders(folder_path)
